@@ -15,7 +15,7 @@ This project provides a service for provisioning Azure AD Applications and stori
 To build and run this application locally, you need the following tools installed on your machine:
 
 1.  **source code editor**: Visual Studio 2022 or Visual Studio Code.
-2.  **.NET SDK**: .NET 8.0 SDK or later. You can download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download).
+2.  **.NET SDK**: .NET 9.0 SDK or later. You can download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download).
 3.  **Git**: For cloning the repository.
 
 ### Building the Application
