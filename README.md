@@ -8,6 +8,90 @@ This project provides a service for provisioning Azure AD Applications and stori
 *   **Secret Management**: Generates client secrets and securely stores them in CyberArk Secrets Hub.
 *   **Service Principal Creation**: Automatically creates a Service Principal for the registered application.
 
+## Development Setup
+
+### Required Tools
+
+To build and run this application locally, you need the following tools installed on your machine:
+
+1.  **source code editor**: Visual Studio 2022 or Visual Studio Code.
+2.  **.NET SDK**: .NET 8.0 SDK or later. You can download it from [dotnet.microsoft.com](https://dotnet.microsoft.com/download).
+3.  **Git**: For cloning the repository.
+
+### Building the Application
+
+1.  **Clone the repository**:
+    ```bash
+    git clone <repository-url>
+    cd AzureKrishna
+    ```
+
+2.  **Restore dependencies**:
+    Navigate to the project folder and run:
+    ```bash
+    dotnet restore
+    ```
+
+3.  **Build the project**:
+    ```bash
+    dotnet build
+    ```
+
+### Running the Application
+
+1.  **Configure Settings**:
+    Ensure your `appsettings.json` is configured with the necessary Azure and CyberArk settings as described in the [Configuration](#configuration) section below.
+
+2.  **Run the application**:
+    ```bash
+    dotnet run --project AzureProvisioningEngine
+    ```
+    
+    *Note: Ensure you are running the command from the solution root or adjust the path to the project file accordingly.*
+
+## API Documentation & Testing
+
+The application exposes a REST API documented using Swagger (OpenAPI). You can use the Swagger UI to interactively test the API endpoints.
+
+### Accessing Swagger UI
+
+Once the application is running, open your web browser and navigate to the following URL:
+
+*   **https://localhost:7014/index.html** (or simply **https://localhost:7014/** as it is served at the root)
+
+*Note: The port `7014` is the default HTTPS port configured in `launchSettings.json`. If you are using the HTTP profile, the URL will be `http://localhost:5200`.*
+
+### How to Test using Swagger
+
+1.  **Navigate to the URL**: Open the link above in your browser. You should see the "Azure Provisioning Engine API" documentation page.
+2.  **Select an Endpoint**: Click on the `POST /api/provisioning` (or similar) endpoint to expand its details.
+3.  **Try it out**: Click the **"Try it out"** button on the right side of the endpoint description.
+4.  **Enter Request Body**: In the "Request body" text area, paste a sample JSON payload. You can use the example provided in the [Usage Examples](#usage-examples) section below.
+    *   *Example Payload:*
+        ```json
+        {
+          "appName": "TestApp-Swagger",
+          "ownerEmail": "admin@example.com",
+          "businessJustification": "Testing Swagger Integration",
+          "signInAudience": "AzureADMyOrg",
+          "generateClientSecret": true
+        }
+        ```
+5.  **Execute**: Click the big blue **"Execute"** button.
+6.  **View Response**: Scroll down to the "Responses" section to see the API response code (e.g., 200 Success) and the response body containing the `AppRegistrationResult`.
+
+## Prerequisites for Testing
+
+Before running or testing the application, ensure the following prerequisites are met:
+
+1.  **Azure Subscription**: You must have an active Azure subscription with permissions to register applications in Azure Active Directory (Entra ID).
+2.  **CyberArk Access**: Access to a CyberArk Secrets Hub instance is required. You need the URL, App ID, and a target Safe name.
+3.  **Configuration**: The `appsettings.json` file must be configured with valid CyberArk details (Url, AppId, SafeName) and Azure AD credentials (if not using Managed Identity).
+4.  **Network Connectivity**: The host running the application must have outbound network connectivity to:
+    *   `graph.microsoft.com` (for Azure AD operations)
+    *   The configured CyberArk Secrets Hub URL.
+5.  **Permissions**: The identity running the application (User or Service Principal) needs the `Application.ReadWrite.All` permission in Microsoft Graph to create and manage applications.
+
 ## Configuration
 
 To enable CyberArk Secrets Hub integration, ensure the following configuration is present in your `appsettings.json` or environment variables:
@@ -53,8 +137,7 @@ To enable CyberArk Secrets Hub integration, ensure the following configuration i
 ```json
 {
   "AppId": "00000000-0000-0000-0000-000000000000",
-  "ObjectId": "11111111-1111-1111-1111-111111111111",
-  "DisplayName": "MyNewApp",
+  "ObjectId": "11111111-1111-1111-1111-111111111111",\n  "DisplayName": "MyNewApp",
   "ClientSecret": "", 
   "SecretExpiration": "2024-12-31T23:59:59+00:00",
   "Status": "Provisioned",
