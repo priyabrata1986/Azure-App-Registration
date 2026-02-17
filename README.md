@@ -1,59 +1,81 @@
-# Azure Provisioning Engine - API Usage Guide
+# Azure Provisioning Engine
 
-## Overview
-This application is a backend **REST API** service designed to automate Azure App Registrations. It does **not** have a front-end user interface (web page). Accessing the root URL (`https://localhost:7014/`) directly in a browser will result in a `404 Not Found` error because no route is configured for the root path.
+This project provides an engine for provisioning Azure resources, specifically focusing on App Registrations in Microsoft Entra ID (formerly Azure AD).
 
-## How to Access and Test
+## Features
 
-To interact with this service, you must use an API testing tool like **Postman**, **Insomnia**, or **curl** to send HTTP requests to the exposed endpoints.
+*   **App Registration:** Automates the creation of App Registrations.
+*   **Client Secret Management:** Generates client secrets and securely stores them in Azure Key Vault.
+*   **Service Principal Creation:** Automatically creates the corresponding Service Principal (Enterprise App) in the local tenant.
 
-### 1. Endpoint Details
+## Configuration
 
-*   **URL**: `https://localhost:7014/api/provisioning/register`
-*   **Method**: `POST`
-*   **Content-Type**: `application/json`
+The application requires configuration in `appsettings.json` (or `appsettings.Development.json` for local development).
 
-### 2. Sample Request
+### Azure Key Vault Integration
 
-**Body (JSON):**
+Generated client secrets are **not** returned in the API response. Instead, they are securely stored in an Azure Key Vault.
+
+**Required Configuration:**
+
+You must specify the URL of the Azure Key Vault where secrets should be stored.
 
 ```json
-{
-  "appName": "MyNewApp_001",
-  "ownerEmail": "admin@example.com",
-  "businessJustification": "Project X Automation",
-  "signInAudience": "AzureADMyOrg",
-  "redirectUris": [
-    "https://myapp.example.com/signin-oidc"
-  ],
-  "description": "App for testing automation",
-  "generateClientSecret": true
+"KeyVault": {
+  "Url": "https://<your-key-vault-name>.vault.azure.net/"
 }
 ```
 
-### 3. Expected Response
+**Permissions:**
 
-**Success (200 OK):**
+The identity running this application (e.g., Visual Studio User, Managed Identity, or Service Principal) must have the following permissions on the target Key Vault:
+*   **Secret Management:** `Set` (to create/update secrets).
+
+### Secrets Hub Role
+
+The previous integration with "Secrets Hub" for storing client secrets has been deprecated in favor of Azure Key Vault. The application no longer synchronizes secrets to the Secrets Hub.
+
+## API Usage
+
+### 1. Provisioning an Application
+
+**Endpoint:** `POST /api/provision` (Example endpoint)
+
+**Request Body (Input Sample):**
+
+```json
+{
+  "AppName": "MyNewApp",
+  "OwnerEmail": "admin@example.com",
+  "BusinessJustification": "Project X Requirement",
+  "SignInAudience": "AzureADMyOrg",
+  "RedirectUris": [
+    "https://myapp.example.com/signin-oidc"
+  ],
+  "Description": "App for Project X",
+  "GenerateClientSecret": true
+}
+```
+
+**Response (Output Sample):**
+
+Note that the `ClientSecret` is intentionally null. The secret has been stored in Azure Key Vault, and the `KeyVaultReference` provides the Secret ID.
 
 ```json
 {
   "appId": "00000000-0000-0000-0000-000000000000",
   "objectId": "11111111-1111-1111-1111-111111111111",
-  "displayName": "MyNewApp_001",
-  "clientSecret": "secret-value-here...",
-  "secretExpiration": "2024-12-31T23:59:59+00:00",
-  "status": "Provisioned"
+  "displayName": "MyNewApp",
+  "clientSecret": null,
+  "secretExpiration": "2024-12-31T23:59:59.999Z",
+  "status": "Provisioned",
+  "keyVaultReference": "https://<your-key-vault-name>.vault.azure.net/secrets/AppSecret-MyNewApp-0000/22222222222222222222222222222222"
 }
 ```
 
-### 4. Notifications
+## Getting Started
 
-Upon a successful request:
-1.  **Request Initiated Email**: Sent to `ownerEmail` immediately.
-2.  **Provisioning Completed Email**: Sent to `ownerEmail` after the app is created in Azure and secrets are synced.
-
-### 5. Troubleshooting
-
-*   **404 Not Found**: Ensure you are using the full path `/api/provisioning/register` and not just the root URL.
-*   **400 Bad Request**: Check that your JSON body is valid and includes all required fields (`appName`, `ownerEmail`, `businessJustification`).
-*   **500 Internal Server Error**: Check the application logs. This usually indicates an issue with Azure credentials or the Secrets Hub connection.
+1.  Clone the repository.
+2.  Update `appsettings.json` with your Azure Key Vault URL.
+3.  Ensure your environment has the necessary Azure credentials (e.g., via `az login` or Visual Studio).
+4.  Run the application.

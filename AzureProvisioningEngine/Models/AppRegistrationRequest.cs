@@ -29,8 +29,14 @@ namespace AzureProvisioningEngine.Models
         public string AppId { get; set; }
         public string ObjectId { get; set; }
         public string DisplayName { get; set; }
-        public string ClientSecret { get; set; }
+        
+        // Secret is no longer returned in plain text
+        public string ClientSecret { get; set; } 
+        
         public System.DateTimeOffset? SecretExpiration { get; set; }
         public string Status { get; set; }
+        
+        // Reference to the secret in Key Vault
+        public string KeyVaultReference { get; set; }
     }
 }

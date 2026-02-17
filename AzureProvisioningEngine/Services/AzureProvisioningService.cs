@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using Azure.Security.KeyVault.Secrets;
 
 namespace AzureProvisioningEngine.Services
 {
@@ -57,6 +58,7 @@ namespace AzureProvisioningEngine.Services
 
                 string secretText = null;
                 DateTimeOffset? secretEnd = null;
+                string keyVaultSecretUri = null;
 
                 // 2. Generate Client Secret if requested
                 if (request.GenerateClientSecret)
@@ -81,6 +83,9 @@ namespace AzureProvisioningEngine.Services
                     secretEnd = addPasswordResult.EndDateTime;
 
                     _logger.LogInformation("Client secret generated.");
+
+                    // 3. Store in Azure Key Vault
+                    keyVaultSecretUri = await StoreSecretInKeyVaultAsync(createdApp.DisplayName, secretText, createdApp.AppId, secretEnd);
                 }
 
                 // 4. Create Service Principal (Enterprise App) in the local tenant
@@ -97,16 +102,12 @@ namespace AzureProvisioningEngine.Services
                     AppId = createdApp.AppId,
                     ObjectId = createdApp.Id,
                     DisplayName = createdApp.DisplayName,
-                    ClientSecret = secretText, // Be careful returning this in real API, usually only shown once
+                    // ClientSecret is intentionally suppressed from response for security
+                    ClientSecret = null, 
                     SecretExpiration = secretEnd,
-                    Status = "Provisioned"
+                    Status = "Provisioned",
+                    KeyVaultReference = keyVaultSecretUri
                 };
-
-                // 3. Sync to CyberArk / Secrets Hub
-                if (request.GenerateClientSecret)
-                {
-                    await SyncToSecretsHubAsync(result);
-                }
 
                 return result;
             }
@@ -117,57 +118,46 @@ namespace AzureProvisioningEngine.Services
             }
         }
 
-        private async Task SyncToSecretsHubAsync(AppRegistrationResult result)
+        private async Task<string> StoreSecretInKeyVaultAsync(string appDisplayName, string secretValue, string appId, DateTimeOffset? expiration)
         {
-            try 
+            try
             {
-                _logger.LogInformation($"Starting synchronization with Secrets Hub for App: {result.DisplayName} ({result.AppId})");
-
-                var secretsHubUrl = _configuration["SecretsHub:ApiUrl"];
-                var apiKey = _configuration["SecretsHub:ApiKey"];
-                var safeName = _configuration["SecretsHub:SafeName"] ?? "Azure_App_Secrets";
-
-                if (string.IsNullOrEmpty(secretsHubUrl) || string.IsNullOrEmpty(apiKey))
+                var keyVaultUrl = _configuration["KeyVault:Url"];
+                if (string.IsNullOrEmpty(keyVaultUrl))
                 {
-                    _logger.LogWarning("Secrets Hub configuration missing (Url or ApiKey). Skipping sync.");
-                    return;
+                    _logger.LogWarning("Key Vault URL is not configured. Secret cannot be stored.");
+                    return "Key Vault not configured";
                 }
 
-                var payload = new
-                {
-                    Safe = safeName,
-                    Object = result.DisplayName,
-                    Secret = result.ClientSecret,
-                    Properties = new 
-                    {
-                        AppId = result.AppId,
-                        ObjectId = result.ObjectId,
-                        Expiration = result.SecretExpiration
-                    }
-                };
+                _logger.LogInformation($"Storing secret for {appDisplayName} in Key Vault: {keyVaultUrl}");
 
-                var jsonPayload = JsonSerializer.Serialize(payload);
-                var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+                var credential = new DefaultAzureCredential();
+                var client = new SecretClient(new Uri(keyVaultUrl), credential);
 
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
+                // Create a valid secret name (alphanumeric and dashes only)
+                // We'll use the AppDisplayName but sanitize it, or fallback to AppId if name is too complex
+                // For simplicity, let's use a prefix + sanitized name
+                var sanitizedName = System.Text.RegularExpressions.Regex.Replace(appDisplayName, "[^a-zA-Z0-9-]", "-");
+                var secretName = $"AppSecret-{sanitizedName}-{appId.Substring(0, 4)}"; 
 
-                var response = await _httpClient.PostAsync($"{secretsHubUrl}/secrets", content);
+                // Ensure secret name doesn't end with a dash and is within length limits if necessary
+                secretName = secretName.Trim('-');
 
-                if (response.IsSuccessStatusCode)
-                {
-                    _logger.LogInformation($"[SUCCESS] Credentials successfully synced to Safe: '{safeName}'. Reference ID: {result.ObjectId}");
-                }
-                else
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError($"Failed to sync to Secrets Hub. Status: {response.StatusCode}, Details: {errorContent}");
-                }
+                var secret = new KeyVaultSecret(secretName, secretValue);
+                secret.Properties.ExpiresOn = expiration;
+                secret.Properties.ContentType = $"Client Secret for AppId: {appId}";
+
+                KeyVaultSecret createdSecret = await client.SetSecretAsync(secret);
+                
+                _logger.LogInformation($"Secret stored successfully. ID: {createdSecret.Id}");
+                return createdSecret.Id.ToString();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to sync credentials to Secrets Hub for {result.DisplayName}");
-                // We log the error but do not re-throw to ensure the provisioning result is returned to the user
+                _logger.LogError(ex, $"Failed to store secret in Key Vault for {appDisplayName}");
+                // We log but don't throw to ensure the main provisioning flow completes, 
+                // though in a real strict env you might want to fail the whole process or rollback.
+                return $"Error storing secret: {ex.Message}";
             }
         }
     }
