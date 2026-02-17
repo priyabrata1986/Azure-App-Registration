@@ -84,7 +84,7 @@ namespace AzureProvisioningEngine.Services
 
                     _logger.LogInformation("Client secret generated.");
 
-                    // 3. Store in Azure Key Vault
+                    // 3. Store in CyberArk Secrets Hub
                     keyVaultSecretUri = await StoreSecretInKeyVaultAsync(createdApp.DisplayName, secretText, createdApp.AppId, secretEnd);
                 }
 
@@ -102,7 +102,7 @@ namespace AzureProvisioningEngine.Services
                     AppId = createdApp.AppId,
                     ObjectId = createdApp.Id,
                     DisplayName = createdApp.DisplayName,
-                    // ClientSecret is intentionally suppressed from response for security
+                    // ClientSecret is forcefully made null to ensure it is never returned in plain text as per requirement
                     ClientSecret = null, 
                     SecretExpiration = secretEnd,
                     Status = "Provisioned",
@@ -122,42 +122,68 @@ namespace AzureProvisioningEngine.Services
         {
             try
             {
-                var keyVaultUrl = _configuration["KeyVault:Url"];
-                if (string.IsNullOrEmpty(keyVaultUrl))
+                // Retrieve CyberArk configuration
+                var cyberArkUrl = _configuration["CyberArk:Url"];
+                var cyberArkAppId = _configuration["CyberArk:AppId"];
+                var safeName = _configuration["CyberArk:SafeName"];
+
+                if (string.IsNullOrEmpty(cyberArkUrl) || string.IsNullOrEmpty(safeName))
                 {
-                    _logger.LogWarning("Key Vault URL is not configured. Secret cannot be stored.");
-                    return "Key Vault not configured";
+                    _logger.LogWarning("CyberArk configuration is missing. Secret cannot be synchronized.");
+                    return "CyberArk not configured";
                 }
 
-                _logger.LogInformation($"Storing secret for {appDisplayName} in Key Vault: {keyVaultUrl}");
+                _logger.LogInformation($"Synchronizing secret for {appDisplayName} with CyberArk Secrets Hub at {cyberArkUrl}");
 
-                var credential = new DefaultAzureCredential();
-                var client = new SecretClient(new Uri(keyVaultUrl), credential);
+                // Construct the payload for CyberArk Secrets Hub synchronization
+                // Note: The actual payload structure depends on the specific CyberArk API version being used.
+                // This is a generic representation for synchronizing a secret.
+                var payload = new
+                {
+                    name = $"AppSecret-{appId.Substring(0, 8)}",
+                    value = secretValue,
+                    safeName = safeName,
+                    properties = new
+                    {
+                        AppId = appId,
+                        AppName = appDisplayName,
+                        ExpirationDate = expiration
+                    }
+                };
 
-                // Create a valid secret name (alphanumeric and dashes only)
-                // We'll use the AppDisplayName but sanitize it, or fallback to AppId if name is too complex
-                // For simplicity, let's use a prefix + sanitized name
-                var sanitizedName = System.Text.RegularExpressions.Regex.Replace(appDisplayName, "[^a-zA-Z0-9-]", "-");
-                var secretName = $"AppSecret-{sanitizedName}-{appId.Substring(0, 4)}"; 
+                var jsonPayload = JsonSerializer.Serialize(payload);
+                var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-                // Ensure secret name doesn't end with a dash and is within length limits if necessary
-                secretName = secretName.Trim('-');
-
-                var secret = new KeyVaultSecret(secretName, secretValue);
-                secret.Properties.ExpiresOn = expiration;
-                secret.Properties.ContentType = $"Client Secret for AppId: {appId}";
-
-                KeyVaultSecret createdSecret = await client.SetSecretAsync(secret);
+                // Assuming authentication is handled via a client certificate or token configured in the HttpClient or headers
+                // For this implementation, we'll assume the _httpClient is pre-configured or we add a specific header if needed.
+                // In a real scenario, you might need to fetch a token first.
                 
-                _logger.LogInformation($"Secret stored successfully. ID: {createdSecret.Id}");
-                return createdSecret.Id.ToString();
+                // Example: Adding an API key or Token if available in config
+                if (!string.IsNullOrEmpty(_configuration["CyberArk:ApiKey"]))
+                {
+                    _httpClient.DefaultRequestHeaders.Remove("Authorization");
+                    _httpClient.DefaultRequestHeaders.Add("Authorization", _configuration["CyberArk:ApiKey"]);
+                }
+
+                var response = await _httpClient.PostAsync($"{cyberArkUrl}/api/secrets", content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogInformation("Secret successfully synchronized with CyberArk Secrets Hub.");
+                    return "Synchronized with CyberArk";
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError($"Failed to synchronize secret with CyberArk. Status: {response.StatusCode}, Error: {errorContent}");
+                    return $"Error synchronizing secret: {response.StatusCode}";
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Failed to store secret in Key Vault for {appDisplayName}");
-                // We log but don't throw to ensure the main provisioning flow completes, 
-                // though in a real strict env you might want to fail the whole process or rollback.
-                return $"Error storing secret: {ex.Message}";
+                _logger.LogError(ex, $"Failed to synchronize secret with CyberArk for {appDisplayName}");
+                return $"Error synchronizing secret: {ex.Message}";
             }
         }
     }

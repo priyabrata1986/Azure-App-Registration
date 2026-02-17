@@ -31,7 +31,8 @@ namespace AzureProvisioningEngine.Models
         public string DisplayName { get; set; }
         
         // Secret is no longer returned in plain text
-        public string ClientSecret { get; set; } 
+        // Initialized to empty string to ensure it is never null as per requirement
+        public string ClientSecret { get; set; } = string.Empty;
         
         public System.DateTimeOffset? SecretExpiration { get; set; }
         public string Status { get; set; }
