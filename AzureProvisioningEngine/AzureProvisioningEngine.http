@@ -1,0 +1,6 @@
+@AzureProvisioningEngine_HostAddress = http://localhost:5200
+
+GET {{AzureProvisioningEngine_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

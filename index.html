@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure App Registration Request - Service Catalog</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="main-header">
+            <div class="logo-area">
+                <i class="fa-brands fa-microsoft"></i>
+                <span>ServiceNow | Azure Automation</span>
+            </div>
+            <div class="user-profile">
+                <span class="user-name">John Doe</span>
+                <div class="avatar">JD</div>
+            </div>
+        </header>
+
+        <main class="content-wrapper">
+            <div class="catalog-card">
+                <div class="card-header">
+                    <div class="header-icon">
+                        <i class="fa-brands fa-azure"></i>
+                    </div>
+                    <div class="header-text">
+                        <h1>Azure App Registration</h1>
+                        <p>Request a new Azure AD Application Registration with automated provisioning.</p>
+                    </div>
+                </div>
+
+                <form id="appRequestForm" class="request-form">
+                    <!-- Section 1: General Information -->
+                    <div class="form-section">
+                        <h2><i class="fa-solid fa-circle-info"></i> General Information</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="appName">Application Name <span class="required">*</span></label>
+                                <input type="text" id="appName" name="appName" placeholder="e.g., HR-Portal-Prod" required>
+                                <small class="hint">Must follow naming convention: [Dept]-[App]-[Env]</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="owner">Owner Email <span class="required">*</span></label>
+                                <input type="email" id="owner" name="owner" placeholder="owner@example.com" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">Description</label>
+                            <textarea id="description" name="description" rows="3" placeholder="Purpose of this application..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Technical Details -->
+                    <div class="form-section">
+                        <h2><i class="fa-solid fa-gears"></i> Technical Configuration</h2>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="signInAudience">Supported Account Types <span class="required">*</span></label>
+                                <select id="signInAudience" name="signInAudience" required>
+                                    <option value="AzureADMyOrg">Accounts in this organizational directory only (Single tenant)</option>
+                                    <option value="AzureADMultipleOrgs">Accounts in any organizational directory (Any Azure AD directory - Multitenant)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="redirectUris">Redirect URIs (SPA/Web)</label>
+                                <input type="text" id="redirectUris" name="redirectUris" placeholder="https://myapp.com/auth/callback">
+                                <small class="hint">Separate multiple URIs with commas.</small>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-container">
+                                <input type="checkbox" id="clientSecret" name="clientSecret">
+                                <span class="checkmark"></span>
+                                Generate Client Secret immediately
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Approval & Justification -->
+                    <div class="form-section">
+                        <h2><i class="fa-solid fa-file-signature"></i> Justification</h2>
+                        <div class="form-group">
+                            <label for="businessJustification">Business Justification <span class="required">*</span></label>
+                            <textarea id="businessJustification" name="businessJustification" rows="3" required placeholder="Why is this registration needed?"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="window.location.reload()">Cancel</button>
+                        <button type="submit" class="btn-primary">Submit Request</button>
+                    </div>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fa-solid fa-check-circle success-icon"></i>
+                <h3>Request Submitted</h3>
+            </div>
+            <div class="modal-body">
+                <p>Your request <strong>REQ0012345</strong> has been successfully submitted.</p>
+                <p>It is now pending approval from <strong>Cloud Admins</strong>.</p>
+                <div class="workflow-steps">
+                    <div class="step completed">
+                        <div class="step-icon"><i class="fa-solid fa-user-pen"></i></div>
+                        <div class="step-label">Submitted</div>
+                    </div>
+                    <div class="step active">
+                        <div class="step-icon"><i class="fa-solid fa-user-shield"></i></div>
+                        <div class="step-label">Approval</div>
+                    </div>
+                    <div class="step">
+                        <div class="step-icon"><i class="fa-solid fa-robot"></i></div>
+                        <div class="step-label">Provisioning</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
