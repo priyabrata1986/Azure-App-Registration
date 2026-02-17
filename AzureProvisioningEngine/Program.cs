@@ -65,7 +65,7 @@ namespace AzureProvisioningEngine
             app.UseSwaggerUI(c =>
             {
                 c.SwaggerEndpoint("/swagger/v1/swagger.json", "Azure Provisioning Engine API V1");
-                c.RoutePrefix = "swagger"; // Serve the Swagger UI at the app's root if empty string, or at /swagger
+                c.RoutePrefix = ""; // Serve the Swagger UI at the app's root
             });
 
             app.UseHttpsRedirection();
