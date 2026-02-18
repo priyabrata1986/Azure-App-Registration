@@ -25,7 +25,7 @@ To build and run this application locally, you need the following tools installe
 1.  **Clone the repository**:
     ```bash
     git clone <repository-url>
-    cd AzureKrishna
+    cd <local path where code was cloned>
     ```
 
 2.  **Restore dependencies**:
